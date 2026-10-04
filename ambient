@@ -1,0 +1,327 @@
+local Lighting = game:GetService("Lighting")
+
+Lighting.ClockTime = 0
+Lighting.Brightness = 0
+Lighting.OutdoorAmbient = Color3.fromRGB(0, 0, 0)
+Lighting.Ambient = Color3.fromRGB(0, 0, 0)
+Lighting.FogEnd = 100
+Lighting.FogStart = 10
+Lighting.FogColor = Color3.fromRGB(0, 0, 0)
+
+Lighting:GetPropertyChangedSignal("ClockTime"):Connect(function() Lighting.ClockTime = 0 end)
+Lighting:GetPropertyChangedSignal("Brightness"):Connect(function() Lighting.Brightness = 0 end)
+Lighting:GetPropertyChangedSignal("OutdoorAmbient"):Connect(function() Lighting.OutdoorAmbient = Color3.fromRGB(0, 0, 0) end)
+
+local function muteGlassSounds(object)
+	if object.Name == "Window" then
+		for _, glass in ipairs(object:GetDescendants()) do
+			if glass.Name == "Glass" then
+				for _, child in ipairs(glass:GetDescendants()) do
+					if child:IsA("Sound") then
+						child.Volume = 0
+					end
+				end
+			end
+		end
+	elseif object.Name == "Glass" and object.Parent and object.Parent.Name == "Window" then
+		for _, child in ipairs(object:GetDescendants()) do
+			if child:IsA("Sound") then
+				child.Volume = 0
+			end
+		end
+	end
+end
+
+for _, room in ipairs(workspace:GetDescendants()) do
+	muteGlassSounds(room)
+end
+
+workspace.DescendantAdded:Connect(function(descendant)
+	muteGlassSounds(descendant)
+	if descendant:IsA("Sound") then
+		local parent = descendant.Parent
+		if parent and parent.Name == "Glass" and parent.Parent and parent.Parent.Name == "Window" then
+			descendant.Volume = 0
+		end
+	end
+end)
+
+local backgroundSound = Instance.new("Sound")
+backgroundSound.SoundId = "rbxassetid://9113731969"
+backgroundSound.Looped = true
+backgroundSound.Parent = workspace
+backgroundSound:Play()
+
+local sfx1 = Instance.new("Sound")
+sfx1.SoundId = "rbxassetid://1837403780"
+sfx1.PlaybackSpeed = 0.193
+sfx1.Parent = workspace
+sfx1:Play()
+
+local sfx2 = Instance.new("Sound")
+sfx2.SoundId = "rbxassetid://1837403780"
+sfx2.PlaybackSpeed = 0.205
+sfx2.Parent = workspace
+sfx2:Play()
+
+local ambienceList = {
+	{ id = "rbxassetid://136909414800877", volume = 1 },
+	{ id = "rbxassetid://139319051979882", volume = 1 },
+	{ id = "rbxassetid://125258912434748", volume = 0.35 }
+}
+
+local intervals = {30, 120, 240}
+
+task.spawn(function()
+	while true do
+		local chosenInterval = intervals[math.random(1, #intervals)]
+		task.wait(chosenInterval)
+		
+		local chosenAmbience = ambienceList[math.random(1, #ambienceList)]
+		
+		local sound = Instance.new("Sound")
+		sound.SoundId = chosenAmbience.id
+		sound.Volume = chosenAmbience.volume
+		sound.Parent = workspace
+		sound:Play()
+		
+		sound.Ended:Connect(function()
+			sound:Destroy()
+		end)
+	end
+end)
+local workspace = game:GetService("Workspace")
+local lighting = game:GetService("Lighting")
+local tweenService = game:GetService("TweenService")
+local players = game:GetService("Players")
+
+local localPlayer = players.LocalPlayer
+
+local seekNames = {
+    ["SeekMoving"] = true,
+    ["SeekMovingNewClone"] = true,
+    ["SeekMovingClone"] = true,
+    ["SeekMovingNew"] = true
+}
+
+local activeSeeks = 0
+local customAlarmSound = nil
+local customSeekMusic = nil
+local alarmTween = nil
+
+local isFigurePresent = false
+local figureSoundTrack = nil
+local figureTimeChoices = {30, 60, 20, 120}
+
+local colorCorrection = lighting:FindFirstChild("AlarmColorCorrection")
+if not colorCorrection then
+    colorCorrection = Instance.new("ColorCorrectionEffect")
+    colorCorrection.Name = "AlarmColorCorrection"
+    colorCorrection.Parent = lighting
+end
+
+local function forceStopDefaultSeekMusic()
+    local ambienceSeek = workspace:FindFirstChild("Ambience_Seek")
+    if ambienceSeek and ambienceSeek:IsA("Sound") then
+        ambienceSeek.Playing = false
+    end
+
+    local footstepsSeek = workspace:FindFirstChild("Footsteps_Seek")
+    if footstepsSeek and footstepsSeek:IsA("Sound") then
+        footstepsSeek.Playing = false
+    end
+end
+
+local function startAlarm()
+    forceStopDefaultSeekMusic()
+
+    if not customSeekMusic then
+        customSeekMusic = Instance.new("Sound")
+        customSeekMusic.SoundId = "rbxassetid://1845149698"
+        customSeekMusic.Volume = 1
+        customSeekMusic.Looped = true
+        customSeekMusic.Parent = workspace
+    end
+    if not customSeekMusic.IsPlaying then
+        customSeekMusic:Play()
+    end
+
+    if not customAlarmSound then
+        customAlarmSound = Instance.new("Sound")
+        customAlarmSound.SoundId = "rbxassetid://130587728874039"
+        customAlarmSound.Volume = 1
+        customAlarmSound.Looped = true
+        customAlarmSound.Parent = workspace
+    end
+    if not customAlarmSound.IsPlaying then
+        customAlarmSound:Play()
+    end
+
+    if not alarmTween then
+        local redInfo = TweenInfo.new(1, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut, -1, true)
+        alarmTween = tweenService:Create(colorCorrection, redInfo, {TintColor = Color3.fromRGB(255, 50, 50)})
+    end
+    alarmTween:Play()
+end
+
+local function stopAlarm()
+    forceStopDefaultSeekMusic()
+
+    if customSeekMusic and customSeekMusic.IsPlaying then
+        customSeekMusic:Stop()
+    end
+
+    if customAlarmSound and customAlarmSound.IsPlaying then
+        customAlarmSound:Stop()
+    end
+    
+    if alarmTween then
+        alarmTween:Cancel()
+    end
+    
+    tweenService:Create(colorCorrection, TweenInfo.new(0.5), {TintColor = Color3.fromRGB(255, 255, 255)}):Play()
+end
+
+local function runFigureAudioLoop()
+    if not figureSoundTrack then
+        figureSoundTrack = Instance.new("Sound")
+        figureSoundTrack.SoundId = "rbxassetid://138998300419100"
+        figureSoundTrack.Volume = 1
+        figureSoundTrack.Parent = workspace
+    end
+
+    task.spawn(function()
+        while isFigurePresent do
+            local chosenInterval = figureTimeChoices[math.random(1, #figureTimeChoices)]
+            task.wait(chosenInterval)
+            
+            if not isFigurePresent then break end
+            
+            figureSoundTrack:Play()
+        end
+    end)
+end
+
+local function checkRoomAttribute()
+    local currentRoom = localPlayer:GetAttribute("CurrentRoom")
+    if currentRoom then
+        local roomString = tostring(currentRoom)
+        if roomString == "50" then
+            if not isFigurePresent then
+                isFigurePresent = true
+                runFigureAudioLoop()
+            end
+        elseif roomString == "51" then
+            if isFigurePresent then
+                isFigurePresent = false
+                if figureSoundTrack and figureSoundTrack.IsPlaying then
+                    figureSoundTrack:Stop()
+                end
+            end
+        end
+    end
+end
+
+local function runLightningLoop()
+    task.spawn(function()
+        local origBrightness = lighting.Brightness
+        local origExposure = lighting.ExposureCompensation
+        
+        while true do
+            local nextFlashWait = math.random(10, 45)
+            task.wait(nextFlashWait)
+            
+            local currentRoom = localPlayer:GetAttribute("CurrentRoom")
+            local isChasing = (activeSeeks > 0)
+            if currentRoom and tostring(currentRoom) == "50" then
+                isChasing = true
+            end
+            
+            if not isChasing then
+                lighting.Brightness = 4
+                lighting.ExposureCompensation = 2
+                task.wait(0.05)
+                lighting.Brightness = origBrightness
+                lighting.ExposureCompensation = origExposure
+                task.wait(0.05)
+                
+                if math.random(1, 2) == 1 then
+                    lighting.Brightness = 3
+                    lighting.ExposureCompensation = 1.5
+                    task.wait(0.05)
+                    lighting.Brightness = origBrightness
+                    lighting.ExposureCompensation = origExposure
+                    task.wait(0.05)
+                end
+                
+                local fadeInfo = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+                local fadeTweenB = tweenService:Create(lighting, fadeInfo, {Brightness = origBrightness})
+                local fadeTweenE = tweenService:Create(lighting, fadeInfo, {ExposureCompensation = origExposure})
+                fadeTweenB:Play()
+                fadeTweenE:Play()
+            end
+        end
+    end)
+end
+
+workspace.ChildAdded:Connect(function(child)
+    if seekNames[child.Name] then
+        activeSeeks = activeSeeks + 1
+        if activeSeeks == 1 then
+            startAlarm()
+        end
+    elseif child.Name == "FigureMoving" then
+        if not isFigurePresent then
+            isFigurePresent = true
+            runFigureAudioLoop()
+        end
+    end
+end)
+
+workspace.ChildRemoved:Connect(function(child)
+    if seekNames[child.Name] then
+        activeSeeks = math.max(0, activeSeeks - 1)
+        if activeSeeks == 0 then
+            stopAlarm()
+        end
+    elseif child.Name == "FigureMoving" then
+        local stillHasFigure = false
+        for _, obj in ipairs(workspace:GetChildren()) do
+            if obj.Name == "FigureMoving" then
+                stillHasFigure = true
+                break
+            end
+        end
+        if not stillHasFigure then
+            local currentRoom = localPlayer:GetAttribute("CurrentRoom")
+            if currentRoom and tostring(currentRoom) == "50" then
+                return
+            end
+            isFigurePresent = false
+            if figureSoundTrack and figureSoundTrack.IsPlaying then
+                figureSoundTrack:Stop()
+            end
+        end
+    end
+end)
+
+localPlayer:GetAttributeChangedSignal("CurrentRoom"):Connect(checkRoomAttribute)
+
+for _, child in ipairs(workspace:GetChildren()) do
+    if seekNames[child.Name] then
+        activeSeeks = activeSeeks + 1
+    elseif child.Name == "FigureMoving" then
+        isFigurePresent = true
+    end
+end
+
+if activeSeeks > 0 then
+    startAlarm()
+end
+
+checkRoomAttribute()
+if isFigurePresent and not figureSoundTrack then
+    runFigureAudioLoop()
+end
+
+runLightningLoop()
